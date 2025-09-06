@@ -4,13 +4,13 @@
 
 *A modern, feature-rich video conferencing application for seamless remote collaboration*
 
-[![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg?style=for-the-badge)](https://github.com/yourusername/video-conference-app)
+[![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg?style=for-the-badge)](https://github.com/harichopper/Video-Conference-App)
 [![React](https://img.shields.io/badge/React-18.0+-61DAFB.svg?style=for-the-badge&logo=react)](https://reactjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-16.0+-339933.svg?style=for-the-badge&logo=node.js)](https://nodejs.org/)
-[![Socket.io](https://img.shields.io/badge/Socket.io-4.6+-010101.svg?style=for-the-badge&logo=socket.io)](https://socket.io/)
+[![Node.js](https://img.shields.io/badge/Node.js-18.0+-339933.svg?style=for-the-badge&logo=node.js)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-4.18+-000000.svg?style=for-the-badge&logo=express)](https://expressjs.com/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-4.4+-47A248.svg?style=for-the-badge&logo=mongodb)](https://mongodb.com/)
 
-[🚀 Live Demo](#) | [📖 Documentation](#) | [🐛 Report Bug](#) | [💡 Request Feature](#)
+[🚀 Live Demo](https://video-conference-app-p3ad.vercel.app/) | [📖 Documentation](#) | [🐛 Report Bug](https://github.com/harichopper/Video-Conference-App/issues) | [💡 Request Feature](https://github.com/harichopper/Video-Conference-App/issues)
 
 ![Screenshot](https://via.placeholder.com/800x400/667eea/ffffff?text=Video+Conference+App+Demo)
 
@@ -105,12 +105,15 @@
 ### Backend
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
 ![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
-![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socketdotio&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 
 ### WebRTC & Real-time
 ![WebRTC](https://img.shields.io/badge/WebRTC-333333?style=for-the-badge&logo=webrtc&logoColor=white)
-![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+![MockSocket](https://img.shields.io/badge/MockSocket-FF6B35?style=for-the-badge&logo=socket.io&logoColor=white)
+
+### Deployment
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
 
 </div>
 
@@ -123,9 +126,9 @@
 > **Note:** Ensure you have the following installed on your system:
 
 ```bash
-Node.js >= 16.0.0
+Node.js >= 18.0.0
 npm >= 8.0.0 or yarn >= 1.22.0
-MongoDB >= 4.4.0
+MongoDB >= 4.4.0 (Atlas or Local)
 Git >= 2.25.0
 ```
 
@@ -133,8 +136,8 @@ Git >= 2.25.0
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/video-conference-app.git
-   cd video-conference-app
+   git clone https://github.com/harichopper/Video-Conference-App.git
+   cd Video-Conference-App
    ```
 
 2. **Backend Setup**
@@ -154,24 +157,21 @@ Git >= 2.25.0
    Create `.env` file in the backend directory:
    ```bash
    cd ../backend
-   cp .env.example .env  # Copy example file
    ```
    
-   Update the `.env` file:
+   Create `.env` file with the following:
    ```env
-   # Database
+   # MongoDB Connection
    MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/videoconference
    
-   # Server
+   # Server Configuration
    PORT=5000
+   NODE_ENV=development
    
    # JWT Secret (Generate a secure random string)
    JWT_SECRET=your-super-secret-jwt-key-here
    
-   # Environment
-   NODE_ENV=development
-   
-   # CORS
+   # CORS Settings
    FRONTEND_URL=http://localhost:5173
    ```
 
