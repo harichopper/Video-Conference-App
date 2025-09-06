@@ -4,8 +4,8 @@ const config = {
     SOCKET_URL: 'http://localhost:5000'
   },
   production: {
-    API_BASE_URL: 'https://video-conference-app-wine.vercel.app', // Updated with your actual backend URL
-    SOCKET_URL: 'https://video-conference-app-wine.vercel.app'    // Updated with your actual backend URL
+    API_BASE_URL: 'https://video-conference-app-black.vercel.app', // Updated with your actual backend URL
+    SOCKET_URL: 'https://video-conference-app-black.vercel.app'    // Updated with your actual backend URL
   }
 };
 

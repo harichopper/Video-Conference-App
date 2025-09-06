@@ -16,7 +16,7 @@ const server = http.createServer(app);
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://video-conference-frontend-your-username.vercel.app', // Will update this after frontend deployment
+  'https://your-frontend-domain.vercel.app', // Will update this after frontend deployment
   /\.vercel\.app$/ // Allow all Vercel preview deployments
 ];
 
