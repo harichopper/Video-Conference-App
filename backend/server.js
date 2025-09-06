@@ -25,7 +25,14 @@ const io = socketIo(server, {
     origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
-  }
+  },
+  // Force polling transport for Vercel
+  transports: ['polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  upgradeTimeout: 30000,
+  maxHttpBufferSize: 1e8,
+  allowEIO3: true
 });
 
 // Middleware

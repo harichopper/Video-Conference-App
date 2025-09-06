@@ -136,7 +136,7 @@ export default function VideoTile({ name, isMuted, isVideoOff, isScreenSharing, 
         style={{ display: showVideo ? 'block' : 'none' }}
       />
       
-      {/* Placeholder */}
+      {/* Placeholder - ALWAYS show when video is not available */}
       {!showVideo && (
         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-900">
           <div className="flex flex-col items-center text-center p-4">
@@ -146,7 +146,7 @@ export default function VideoTile({ name, isMuted, isVideoOff, isScreenSharing, 
             <span className="text-white text-sm font-medium mb-1">{name}</span>
             <span className="text-gray-400 text-xs">
               {!stream 
-                ? 'Connecting...' 
+                ? isLocal ? 'Initializing...' : 'Connecting...'
                 : isVideoOff 
                   ? 'Video off' 
                   : videoReady 
@@ -157,7 +157,7 @@ export default function VideoTile({ name, isMuted, isVideoOff, isScreenSharing, 
         </div>
       )}
       
-      {/* Name and mic status overlay */}
+      {/* Name and mic status overlay - ALWAYS show */}
       <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-sm flex items-center max-w-[calc(100%-1rem)]">
         {isMuted ? (
           <MicOff className="h-3 w-3 mr-1 text-red-400 flex-shrink-0" />

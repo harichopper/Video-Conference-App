@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import HomePage from './pages/HomePage.jsx';
 import MeetingRoom from './pages/MeetingRoom.jsx';
 import AuthPage from './pages/AuthPage';
+import MockSocket from './utils/MockSocket.js';
 import { io } from 'socket.io-client';
 import { pcConfig } from './utils/constants.js';
-import config from './config/config.js'; // Add this import
+import config from './config/config.js';
 import Swal from 'sweetalert2/dist/sweetalert2.js';
 import 'sweetalert2/dist/sweetalert2.css';
 
@@ -13,8 +14,6 @@ export default function VideoConferencingApp() {
     const token = localStorage.getItem('token');
     const savedMeetingId = localStorage.getItem('meetingId');
     
-    // Always start with home page if there's any token (even if expired)
-    // The HomePage will handle token validation
     if (token && savedMeetingId) return 'meeting';
     if (token) return 'home';
     return 'auth';
@@ -26,7 +25,6 @@ export default function VideoConferencingApp() {
   const [participants, setParticipants] = useState([]);
   const [messages, setMessages] = useState([]);
   const [isOwner, setIsOwner] = useState(() => localStorage.getItem('isOwner') === 'true');
-  // Generate NEW userId on every app load (don't persist across sessions)
   const [userId, setUserId] = useState(() => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 
   const socketRef = useRef(null);
@@ -80,7 +78,6 @@ export default function VideoConferencingApp() {
   // Create peer connection
   const createPeerConnection = (userId) => {
     try {
-      // Clean up existing connection
       if (peerConnections.current[userId]) {
         console.log(`Closing existing peer connection to ${userId}`);
         const oldPc = peerConnections.current[userId];
@@ -94,7 +91,6 @@ export default function VideoConferencingApp() {
       console.log(`Creating new peer connection to ${userId}`);
       const peerConnection = new RTCPeerConnection(pcConfig);
       
-      // Enhanced connection state monitoring
       peerConnection.oniceconnectionstatechange = () => {
         console.log(`ICE connection state for ${userId}: ${peerConnection.iceConnectionState}`);
         
@@ -129,7 +125,6 @@ export default function VideoConferencingApp() {
         }
       };
 
-      // Enhanced ontrack handler with immediate stream processing
       peerConnection.ontrack = (event) => {
         console.log(`🎥 Received remote stream from ${userId}:`, event.streams[0]);
         
@@ -137,9 +132,7 @@ export default function VideoConferencingApp() {
         if (stream && stream.getTracks().length > 0) {
           console.log(`🎵🎥 Stream tracks for ${userId}:`, stream.getTracks().map(t => `${t.kind}:${t.readyState}:${t.enabled}`));
           
-          // Set remote stream immediately and only once per stream
           setRemoteStreams(prev => {
-            // Skip if this is the same stream
             if (prev[userId] && prev[userId].id === stream.id) {
               console.log(`⏭️ Skipping duplicate stream for ${userId}`);
               return prev;
@@ -154,7 +147,6 @@ export default function VideoConferencingApp() {
             return updated;
           });
           
-          // Update participant state only if needed
           setParticipants(prev => {
             const existing = prev.find(p => p.id === userId);
             if (existing) {
@@ -177,9 +169,7 @@ export default function VideoConferencingApp() {
         }
       };
 
-      // Store the connection
       peerConnections.current[userId] = peerConnection;
-      
       console.log(`✅ Peer connection created for ${userId}`);
       return peerConnection;
     } catch (err) {
@@ -191,14 +181,10 @@ export default function VideoConferencingApp() {
   // Initialize socket connection and handle meeting logic
   useEffect(() => {
     if (currentPage === 'meeting') {
-      // Ensure media is initialized before setting up connections
       const setupMedia = async () => {
         const stream = await initializeMedia();
-        
-        // Store the stream reference for use in peer connections
         const currentLocalStream = stream;
         
-        // IMPORTANT: Clean up any existing socket connection first
         if (socketRef.current) {
           console.log('Cleaning up existing socket connection');
           socketRef.current.removeAllListeners();
@@ -206,22 +192,47 @@ export default function VideoConferencingApp() {
           socketRef.current = null;
         }
         
-        // Clear existing peer connections
         Object.values(peerConnections.current).forEach(pc => pc.close());
         peerConnections.current = {};
         
-        // Reset participants and remote streams
         setParticipants([]);
         setRemoteStreams({});
         setMessages([]);
         
-        // Use config for socket URL
-        socketRef.current = io(config.SOCKET_URL, {
-          transports: ['websocket'],
-          timeout: 20000,
-          forceNew: true,
-          autoConnect: true
-        });
+        // Use MockSocket for both development and production due to Vercel limitations
+        console.log('🔧 Using MockSocket for cross-browser communication');
+        socketRef.current = new MockSocket();
+
+        // Alternative: Try real Socket.IO first, fallback to MockSocket
+        /*
+        if (config.API_BASE_URL.includes('localhost') || config.API_BASE_URL.includes('127.0.0.1')) {
+          console.log('🔧 Using MockSocket for local development');
+          socketRef.current = new MockSocket();
+        } else {
+          console.log('🌐 Attempting Socket.IO connection with polling...');
+          try {
+            socketRef.current = io(config.SOCKET_URL, {
+              transports: ['polling'],
+              timeout: 10000,
+              forceNew: true,
+              autoConnect: true,
+              upgrade: false
+            });
+            
+            // Fallback to MockSocket if connection fails
+            setTimeout(() => {
+              if (!socketRef.current.connected) {
+                console.log('🔧 Falling back to MockSocket due to connection failure');
+                socketRef.current.disconnect();
+                socketRef.current = new MockSocket();
+              }
+            }, 5000);
+          } catch (error) {
+            console.log('🔧 Using MockSocket due to Socket.IO error:', error);
+            socketRef.current = new MockSocket();
+          }
+        }
+        */
         
         socketRef.current.on('connect', () => {
           console.log('✅ Connected to signaling server with ID:', socketRef.current.id);
@@ -235,16 +246,15 @@ export default function VideoConferencingApp() {
           console.error('❌ Socket connection error:', error);
         });
 
-        // Handle user joining event
         socketRef.current.on('user-joined', (joinedUserId, userName) => {
           if (!joinedUserId) {
             console.warn('⚠️ Received user-joined with empty userId');
             return;
           }
           
-          // Ignore self-connection
-          if (joinedUserId === socketRef.current.id) {
-            console.log(`🚫 Ignoring self-connection to ${joinedUserId}`);
+          // IMPORTANT: Ignore self-connection - check both socket ID and our current user ID
+          if (joinedUserId === socketRef.current.id || joinedUserId === userId) {
+            console.log(`🚫 Ignoring self-connection to ${joinedUserId} (my IDs: socket=${socketRef.current.id}, user=${userId})`);
             return;
           }
           
@@ -274,14 +284,12 @@ export default function VideoConferencingApp() {
             return newParticipants;
           });
           
-          // Create peer connection immediately
           const pc = createPeerConnection(joinedUserId);
           if (!pc) {
             console.error(`❌ Failed to create peer connection for ${joinedUserId}`);
             return;
           }
 
-          // Add local stream tracks immediately
           if (currentLocalStream && currentLocalStream.getTracks().length > 0) {
             currentLocalStream.getTracks().forEach(track => {
               console.log(`➕ Adding ${track.kind} track to peer connection for ${joinedUserId}`);
@@ -289,7 +297,6 @@ export default function VideoConferencingApp() {
             });
           }
           
-          // Determine who should initiate the offer
           const shouldInitiate = socketRef.current.id.localeCompare(joinedUserId) < 0;
           
           console.log(`🎯 My Socket ID: "${socketRef.current.id}", Their ID: "${joinedUserId}"`);
@@ -331,7 +338,6 @@ export default function VideoConferencingApp() {
           }
         });
 
-        // Handle WebRTC signaling
         socketRef.current.on('offer', async ({ from, offer }) => {
           try {
             if (!from || !offer) {
@@ -341,7 +347,6 @@ export default function VideoConferencingApp() {
             
             console.log(`📥 Received offer from ${from}`);
             
-            // Create peer connection if it doesn't exist
             let peerConnection = peerConnections.current[from];
             if (!peerConnection) {
               console.log(`🔄 Creating new peer connection for offer from ${from}`);
@@ -352,7 +357,6 @@ export default function VideoConferencingApp() {
               }
             }
 
-            // Add local stream tracks
             if (currentLocalStream && currentLocalStream.getTracks().length > 0) {
               console.log(`➕ Adding local stream tracks for ${from}`);
               currentLocalStream.getTracks().forEach(track => {
@@ -364,7 +368,6 @@ export default function VideoConferencingApp() {
               });
             }
             
-            // Set remote description and create answer
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             console.log(`✅ Set remote description for ${from}`);
             
@@ -441,7 +444,6 @@ export default function VideoConferencingApp() {
           setParticipants(prev => prev.map(p => p.id === userId ? { ...p, isScreenSharing: state } : p));
         });
 
-        // Enhanced disconnect handling
         socketRef.current.on('disconnect', () => {
           console.log('❌ Socket disconnected');
         });
@@ -462,7 +464,6 @@ export default function VideoConferencingApp() {
         Object.values(peerConnections.current).forEach(pc => pc.close());
         peerConnections.current = {};
         
-        // Clear state
         setParticipants([]);
         setRemoteStreams({});
         setMessages([]);
@@ -482,12 +483,10 @@ export default function VideoConferencingApp() {
     if (!meetingId.trim() || !username.trim()) return;
 
     try {
-      // ALWAYS generate a NEW unique userId for each tab/session
       const newUserId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       setUserId(newUserId);
       localStorage.setItem('userId', newUserId);
 
-      // Store the EXACT meeting ID (preserve case and format)
       const cleanMeetingId = meetingId.trim().toUpperCase();
       setMeetingId(cleanMeetingId);
       localStorage.setItem('meetingId', cleanMeetingId);
@@ -506,7 +505,7 @@ export default function VideoConferencingApp() {
     }
   };
 
-  // Handle creating a new meeting (owner)
+  // Handle creating a new meeting
   const handleCreateMeeting = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -529,7 +528,6 @@ export default function VideoConferencingApp() {
         console.log('Meeting created:', data);
         const cleanMeetingId = data.meetingId.trim().toUpperCase();
         
-        // ALWAYS generate a NEW unique userId for each tab/session
         const newUserId = `owner_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         setUserId(newUserId);
         localStorage.setItem('userId', newUserId);
@@ -557,7 +555,6 @@ export default function VideoConferencingApp() {
 
   // Enhanced logout function
   const handleLogout = () => {
-    // Clear all stored data
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('meetingId');
@@ -565,7 +562,6 @@ export default function VideoConferencingApp() {
     localStorage.removeItem('isOwner');
     localStorage.removeItem('userId');
     
-    // Reset state
     setCurrentPage('auth');
     setUsername('');
     setMeetingId('');
@@ -575,7 +571,6 @@ export default function VideoConferencingApp() {
     setParticipants([]);
     setMessages([]);
     
-    // Close any active connections
     if (socketRef.current) {
       socketRef.current.disconnect();
     }
@@ -608,7 +603,7 @@ export default function VideoConferencingApp() {
           username={username}
           localStream={localStream}
           remoteStreams={remoteStreams}
-          setRemoteStreams={setRemoteStreams} // Add this missing prop
+          setRemoteStreams={setRemoteStreams}
           participants={participants}
           setParticipants={setParticipants}
           messages={messages}

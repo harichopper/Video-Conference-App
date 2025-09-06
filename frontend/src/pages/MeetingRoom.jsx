@@ -640,9 +640,9 @@ export default function MeetingRoom({
       live: !!localStream
     };
     
-    // Remote participants with their streams
+    // Remote participants with their streams - filter out duplicates of local user
     const remoteParticipants = participants
-      .filter(p => p.id !== mySocketId)
+      .filter(p => p.id !== mySocketId && p.id !== 'local') // Filter out self from participants list
       .map((p, index) => ({
         ...p,
         isLocal: false,
@@ -652,7 +652,11 @@ export default function MeetingRoom({
         joinTime: p.joinTime || (Date.now() + index)
       }));
     
-    return [local, ...remoteParticipants];
+    // Always return local user first, then remote participants
+    const allParticipants = [local, ...remoteParticipants];
+    console.log(`👥 Total participants for display: ${allParticipants.length} (1 local + ${remoteParticipants.length} remote)`);
+    
+    return allParticipants;
   }, [
     socketRef.current?.id, 
     username, 
@@ -660,9 +664,9 @@ export default function MeetingRoom({
     isVideoOff, 
     isScreenSharing, 
     localStream, 
-    participants.length, // Only depend on length, not the array itself
-    Object.keys(remoteStreams).length, // Only depend on keys length
-    Object.keys(remoteStreams).join(',') // Include actual keys for stream changes
+    participants.length,
+    Object.keys(remoteStreams).length,
+    Object.keys(remoteStreams).join(',')
   ]);
 
   // Monitor participants and remote streams - simplified and less frequent

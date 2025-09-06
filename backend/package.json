@@ -22,6 +22,6 @@
     "nodemon": "^2.0.22"
   },
   "engines": {
-    "node": "22.x"
+    "node": "18.x"
   }
 }
