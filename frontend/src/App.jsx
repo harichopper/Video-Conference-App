@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import HomePage from './pages/HomePage.jsx';
 import MeetingRoom from './pages/MeetingRoom.jsx';
 import AuthPage from './pages/AuthPage';
-import { io } from 'socket.io-client'; // Replace MockSocket with real Socket.IO
+import { io } from 'socket.io-client';
 import { pcConfig } from './utils/constants.js';
+import config from './config/config.js'; // Add this import
 import Swal from 'sweetalert2/dist/sweetalert2.js';
 import 'sweetalert2/dist/sweetalert2.css';
 
@@ -214,8 +215,8 @@ export default function VideoConferencingApp() {
         setRemoteStreams({});
         setMessages([]);
         
-        // Use REAL Socket.IO client ONLY
-        socketRef.current = io('http://localhost:5000', {
+        // Use config for socket URL
+        socketRef.current = io(config.SOCKET_URL, {
           transports: ['websocket'],
           timeout: 20000,
           forceNew: true,
@@ -514,7 +515,7 @@ export default function VideoConferencingApp() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/meeting/create', {
+      const response = await fetch(`${config.API_BASE_URL}/api/meeting/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

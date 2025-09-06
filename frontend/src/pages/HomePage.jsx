@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import Swal from "sweetalert2/dist/sweetalert2.js";
 import "sweetalert2/dist/sweetalert2.css";
 import { motion } from "framer-motion";
+import config from '../config/config.js'; // Add this import
 
 export default function HomePage({
   meetingId,
@@ -70,7 +71,7 @@ export default function HomePage({
         }
 
         console.log("Fetching user data with token...");
-        const response = await fetch("http://localhost:5000/auth/user", {
+        const response = await fetch(`${config.API_BASE_URL}/api/auth/user`, { // Updated to use config and /api prefix
           headers: { 
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -232,7 +233,7 @@ export default function HomePage({
 
       const newAvatar = generateAvatar(editName, editGender);
 
-      const response = await fetch("http://localhost:5000/auth/user", {
+      const response = await fetch(`${config.API_BASE_URL}/api/auth/user`, { // Updated to use config and /api prefix
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -354,7 +355,7 @@ export default function HomePage({
       const cleanMeetingId = meetingId.trim().toUpperCase();
       console.log(`Validating meeting ID: "${cleanMeetingId}"`);
       
-      const response = await fetch(`http://localhost:5000/meeting/validate/${encodeURIComponent(cleanMeetingId)}`);
+      const response = await fetch(`${config.API_BASE_URL}/api/meeting/validate/${encodeURIComponent(cleanMeetingId)}`); // Updated to use config and /api prefix
       
       if (!response.ok) {
         throw new Error(`Server returned ${response.status}: ${response.statusText}`);

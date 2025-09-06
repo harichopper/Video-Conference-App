@@ -8,6 +8,7 @@ import {
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import config from '../config/config.js'; // Add this import
 import Swal from "sweetalert2/dist/sweetalert2.js";
 import "sweetalert2/dist/sweetalert2.css";
 import { motion } from "framer-motion";
@@ -28,7 +29,7 @@ export default function AuthPage({ onAuthSuccess }) {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/auth/${isLogin ? "login" : "signup"}`,
+        `${config.API_BASE_URL}/api/auth/${isLogin ? "login" : "signup"}`, // Updated to use config and /api prefix
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

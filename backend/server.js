@@ -6,70 +6,120 @@ const cors = require('cors');
 require('dotenv').config();
 
 const meetingRoutes = require('./routes/meetingRoutes');
-const authRoutes = require('./routes/authRoutes'); // 👈 added
+const authRoutes = require('./routes/authRoutes');
 const { initializeSocket } = require('./socket/socketHandler');
 
 const app = express();
 const server = http.createServer(app);
 
+// Updated CORS configuration for production
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://video-conference-frontend-your-username.vercel.app', // Will update this after frontend deployment
+  /\.vercel\.app$/ // Allow all Vercel preview deployments
+];
+
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:5173", // frontend
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 app.use(express.json());
 
-// MongoDB connection
-mongoose.connect(
-  process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/videoconference',
-  {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
+// MongoDB connection with better error handling for production
+const connectDB = async () => {
+  try {
+    await mongoose.connect(
+      process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/videoconference',
+      {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+      }
+    );
+    console.log('✅ MongoDB connected successfully');
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error);
+    // In production, we might want to exit the process
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
   }
-);
+};
 
-mongoose.connection.on('connected', () => {
-  console.log('✅ MongoDB connected');
-});
+connectDB();
 
-// MongoDB connection error handling - make more robust
 mongoose.connection.on('error', (err) => {
   console.error('❌ MongoDB connection error:', err);
-  console.log('The server will continue running with limited functionality.');
-  // We don't exit the process here to allow the app to run with mock data
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('📡 MongoDB disconnected');
 });
 
 // Routes
-app.use('/meeting', meetingRoutes);
-app.use('/auth', authRoutes); // 👈 now signup/login will work
+app.use('/api/meeting', meetingRoutes); // Add /api prefix for better organization
+app.use('/api/auth', authRoutes);
 
-// Add an error handling middleware
+// Health check route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Video Conference API is running 🚀',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// API info route
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'Video Conference API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      meeting: '/api/meeting'
+    }
+  });
+});
+
+// Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
   res.status(500).json({ 
     error: 'Server error', 
-    message: err.message || 'An unexpected error occurred'
+    message: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred'
   });
 });
 
 // Handle 404 routes
 app.use((req, res) => {
-  res.status(404).json({ error: 'Not found', message: 'The requested resource does not exist' });
-});
-
-// Health check route
-app.get('/', (req, res) => {
-  res.send('Video Conference API is running 🚀');
+  res.status(404).json({ 
+    error: 'Not found', 
+    message: 'The requested resource does not exist',
+    requestedPath: req.path
+  });
 });
 
 // Initialize Socket.io
 initializeSocket(io);
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+
+// For Vercel, we need to export the app
+if (process.env.NODE_ENV !== 'production') {
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+}
+
+// Export for Vercel
+module.exports = app;
