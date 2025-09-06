@@ -628,6 +628,10 @@ export default function MeetingRoom({
   const getAllParticipants = useMemo(() => {
     const mySocketId = socketRef.current?.id || 'local';
     
+    console.log(`🔍 Getting all participants. My socket ID: ${mySocketId}`);
+    console.log(`🔍 Current participants:`, participants.map(p => `${p.id}(${p.name})`));
+    console.log(`🔍 Remote streams:`, Object.keys(remoteStreams));
+    
     const local = {
       id: mySocketId,
       name: `${username} (You)`,
@@ -642,7 +646,11 @@ export default function MeetingRoom({
     
     // Remote participants with their streams - filter out duplicates of local user
     const remoteParticipants = participants
-      .filter(p => p.id !== mySocketId && p.id !== 'local') // Filter out self from participants list
+      .filter(p => {
+        const shouldInclude = p.id !== mySocketId && p.id !== 'local';
+        console.log(`🔍 Participant ${p.id}(${p.name}): include=${shouldInclude}`);
+        return shouldInclude;
+      })
       .map((p, index) => ({
         ...p,
         isLocal: false,
@@ -654,7 +662,8 @@ export default function MeetingRoom({
     
     // Always return local user first, then remote participants
     const allParticipants = [local, ...remoteParticipants];
-    console.log(`👥 Total participants for display: ${allParticipants.length} (1 local + ${remoteParticipants.length} remote)`);
+    console.log(`👥 Final participants for display: ${allParticipants.length} (1 local + ${remoteParticipants.length} remote)`);
+    console.log(`👥 All participants:`, allParticipants.map(p => `${p.id}(${p.name}) ${p.isLocal ? '[LOCAL]' : '[REMOTE]'}`));
     
     return allParticipants;
   }, [
@@ -664,8 +673,8 @@ export default function MeetingRoom({
     isVideoOff, 
     isScreenSharing, 
     localStream, 
-    participants.length,
-    Object.keys(remoteStreams).length,
+    participants,
+    remoteStreams,
     Object.keys(remoteStreams).join(',')
   ]);
 

@@ -252,13 +252,14 @@ export default function VideoConferencingApp() {
             return;
           }
           
-          // IMPORTANT: Ignore self-connection - check both socket ID and our current user ID
-          if (joinedUserId === socketRef.current.id || joinedUserId === userId) {
-            console.log(`🚫 Ignoring self-connection to ${joinedUserId} (my IDs: socket=${socketRef.current.id}, user=${userId})`);
+          // IMPORTANT: Only ignore if it's the exact same socket ID
+          if (joinedUserId === socketRef.current.id) {
+            console.log(`🚫 Ignoring self-connection to ${joinedUserId} (my socket ID: ${socketRef.current.id})`);
             return;
           }
           
           console.log(`🔥 User joined: ${userName} (${joinedUserId})`);
+          console.log(`🔍 Current participants before adding:`, participants.map(p => `${p.id}(${p.name})`));
           
           setParticipants(prev => {
             // Prevent duplicates
@@ -280,7 +281,7 @@ export default function VideoConferencingApp() {
               }
             ];
             
-            console.log(`📊 Total participants now: ${newParticipants.length}`);
+            console.log(`📊 Total participants now: ${newParticipants.length}`, newParticipants.map(p => `${p.id}(${p.name})`));
             return newParticipants;
           });
           

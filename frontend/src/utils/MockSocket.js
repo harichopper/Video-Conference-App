@@ -105,7 +105,6 @@ class CrossBrowserManager {
     
     const room = this.rooms.get(roomId);
     
-    // FIXED: Don't check for existing userId, always add new participants
     // Remove any existing entry for this socketId first
     for (const [existingUserId, participant] of room.entries()) {
       if (participant.socketId === socketId) {
@@ -118,18 +117,18 @@ class CrossBrowserManager {
     // Store existing participants before adding the new one
     const existingParticipants = Array.from(room.entries());
     
-    // Add the new participant
-    room.set(userId, { userName, socketId, joinTime: Date.now() });
+    // Add the new participant using socketId as the key
+    room.set(socketId, { userName, socketId, joinTime: Date.now() });
     
     console.log(`📊 Room ${roomId} now has ${room.size} participants:`, Array.from(room.entries()).map(([id, p]) => `${id}(${p.userName})`));
     
     // Notify ALL existing participants about the new user (cross-tab broadcast)
     if (existingParticipants.length > 0) {
-      console.log(`📢 Broadcasting new user ${userId}(${userName}) to ${existingParticipants.length} existing participants`);
+      console.log(`📢 Broadcasting new user ${socketId}(${userName}) to ${existingParticipants.length} existing participants`);
       this.broadcast({
         type: 'user-joined',
         roomId,
-        userId,
+        userId: socketId,
         userName
       }, socketId);
     }
@@ -137,9 +136,9 @@ class CrossBrowserManager {
     // Send existing participants to the new user (direct message)
     const socket = this.sockets.get(socketId);
     if (socket && existingParticipants.length > 0) {
-      console.log(`📨 Sending ${existingParticipants.length} existing participants to new user ${userId}(${userName})`);
+      console.log(`📨 Sending ${existingParticipants.length} existing participants to new user ${socketId}(${userName})`);
       existingParticipants.forEach(([participantId, participant]) => {
-        console.log(`📤 Sending existing participant ${participantId}(${participant.userName}) to new user ${userId}(${userName})`);
+        console.log(`📤 Sending existing participant ${participantId}(${participant.userName}) to new user ${socketId}(${userName})`);
         socket.receiveMessage({
           type: 'user-joined',
           roomId,
@@ -153,15 +152,15 @@ class CrossBrowserManager {
   leaveRoom(roomId, userId, socketId) {
     if (this.rooms.has(roomId)) {
       const room = this.rooms.get(roomId);
-      room.delete(userId);
+      room.delete(socketId); // Use socketId as key
       
       this.broadcast({
         type: 'user-left',
         roomId,
-        userId
+        userId: socketId // Send socketId as userId
       }, socketId);
       
-      console.log(`User ${userId} left room ${roomId}`);
+      console.log(`User ${socketId} left room ${roomId}`);
       
       // If the room is empty, remove it
       if (room.size === 0) {
@@ -232,22 +231,21 @@ export default class MockSocket {
     
     // Handle specific events that need cross-browser communication
     if (event === 'join-room') {
-      const [roomId, userId, userName] = args;
+      const [roomId, socketId, userName] = args;
       this.currentRoomId = roomId;
-      this.currentUserId = userId;
+      this.currentUserId = socketId; // Use the passed socketId
       this.currentUserName = userName;
       
-      console.log(`🔗 Socket ${this.id} joining room ${roomId} as user ${userId} (${userName})`);
-      globalManager.joinRoom(roomId, userId, userName, this.id);
+      console.log(`🔗 Socket ${this.id} joining room ${roomId} as user ${socketId} (${userName})`);
+      globalManager.joinRoom(roomId, socketId, userName, this.id);
     }
     
     else if (event === 'offer') {
       const { to, offer } = args[0];
-      console.log(`📤 Socket ${this.id} (user ${this.currentUserId}) sending offer to ${to}`);
-      console.log('Offer details:', offer);
+      console.log(`📤 Socket ${this.id} sending offer to ${to}`);
       globalManager.broadcast({
         type: 'offer',
-        from: this.currentUserId, // Make sure this is set correctly
+        from: this.id,
         to,
         offer
       }, this.id);
@@ -255,11 +253,10 @@ export default class MockSocket {
     
     else if (event === 'answer') {
       const { to, answer } = args[0];
-      console.log(`📤 Socket ${this.id} (user ${this.currentUserId}) sending answer to ${to}`);
-      console.log('Answer details:', answer);
+      console.log(`📤 Socket ${this.id} sending answer to ${to}`);
       globalManager.broadcast({
         type: 'answer',
-        from: this.currentUserId, // Make sure this is set correctly
+        from: this.id,
         to,
         answer
       }, this.id);
@@ -267,10 +264,10 @@ export default class MockSocket {
     
     else if (event === 'ice-candidate') {
       const { to, candidate } = args[0];
-      console.log(`🧊 Socket ${this.id} (user ${this.currentUserId}) sending ICE candidate to ${to}`);
+      console.log(`🧊 Socket ${this.id} sending ICE candidate to ${to}`);
       globalManager.broadcast({
         type: 'ice-candidate',
-        from: this.currentUserId, // Make sure this is set correctly
+        from: this.id,
         to,
         candidate
       }, this.id);
@@ -278,7 +275,7 @@ export default class MockSocket {
     
     else if (event === 'send-message') {
       const message = args[0];
-      console.log(`📤 Broadcasting message from ${this.currentUserId}:`, message);
+      console.log(`📤 Broadcasting message from ${this.id}:`, message);
       globalManager.broadcast({
         type: 'chat-message',
         message
@@ -302,14 +299,13 @@ export default class MockSocket {
     console.log(`📨 Socket ${this.id} received message: ${type}`, data);
     
     if (type === 'user-joined') {
-      // Fix: Only filter by currentUserId, not by socket id or name comparison
-      if (data.userId === this.currentUserId) {
-        console.log(`🚫 Ignoring self-join message for ${data.userId} (my currentUserId: ${this.currentUserId})`);
+      // Filter by socket ID to prevent self-join
+      if (data.userId === this.id) {
+        console.log(`🚫 Ignoring self-join message for ${data.userId} (my socket ID: ${this.id})`);
         return;
       }
       
       console.log(`👤 User ${data.userId} (${data.userName}) joined the room`);
-      console.log(`🔍 My info: currentUserId=${this.currentUserId}, socketId=${this.id}`);
       this.eventListeners.get('user-joined')?.forEach(callback => 
         callback(data.userId, data.userName)
       );
@@ -323,38 +319,29 @@ export default class MockSocket {
     }
     
     else if (type === 'offer') {
-      if (data.to === this.currentUserId) {
+      if (data.to === this.id) {
         console.log(`📥 Socket ${this.id} processing offer from ${data.from} to ${data.to}`);
-        // IMPORTANT: Make sure we pass the correct 'from' field
         this.eventListeners.get('offer')?.forEach(callback => 
           callback({ from: data.from, offer: data.offer })
         );
-      } else {
-        console.log(`🚫 Ignoring offer not meant for me (${this.currentUserId}), meant for ${data.to}`);
       }
     }
     
     else if (type === 'answer') {
-      if (data.to === this.currentUserId) {
+      if (data.to === this.id) {
         console.log(`📥 Socket ${this.id} processing answer from ${data.from} to ${data.to}`);
-        // IMPORTANT: Make sure we pass the correct 'from' field
         this.eventListeners.get('answer')?.forEach(callback => 
           callback({ from: data.from, answer: data.answer })
         );
-      } else {
-        console.log(`🚫 Ignoring answer not meant for me (${this.currentUserId}), meant for ${data.to}`);
       }
     }
     
     else if (type === 'ice-candidate') {
-      if (data.to === this.currentUserId) {
+      if (data.to === this.id) {
         console.log(`🧊📥 Socket ${this.id} processing ICE candidate from ${data.from} to ${data.to}`);
-        // IMPORTANT: Make sure we pass the correct 'from' field
         this.eventListeners.get('ice-candidate')?.forEach(callback => 
           callback({ from: data.from, candidate: data.candidate })
         );
-      } else {
-        console.log(`🚫 Ignoring ICE candidate not meant for me (${this.currentUserId}), meant for ${data.to}`);
       }
     }
     
